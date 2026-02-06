@@ -1,0 +1,178 @@
+# Code Style Rules for Hono Lab 2
+
+## General Principles
+- Use the most modern JavaScript/TypeScript syntax and patterns
+- Prefer concise, readable code over verbose patterns
+- Follow functional programming principles where appropriate
+
+## Syntax Rules
+
+### No Semicolons
+- **Never** add semicolons at the end of statements
+- Rely on Automatic Semicolon Insertion (ASI)
+
+```typescript
+// ✅ Good
+const x = 5
+return x
+
+// ❌ Bad  
+const x = 5;
+return x;
+```
+
+### Early Returns (Single Line)
+- For simple early returns, use single-line syntax without braces
+
+```typescript
+// ✅ Good
+if (!condition) return
+
+if (error) throw new Error("Failed")
+
+// ❌ Bad
+if (!condition) {
+  return
+}
+```
+
+### Nullish Coalescing for Default Values
+- Use `??` operator for chaining fallback values instead of multiple if statements
+
+```typescript
+// ✅ Good
+const value = 
+  option1 ?? 
+  option2 ?? 
+  defaultValue
+
+// ❌ Bad
+let value = option1
+if (!value) value = option2
+if (!value) value = defaultValue
+```
+
+### Optional Chaining
+- Use `?.` for safe property access
+
+```typescript
+// ✅ Good
+const name = user?.profile?.name
+
+// ❌ Bad
+const name = user && user.profile && user.profile.name
+```
+
+### Template Literals
+- Always prefer template literals over string concatenation
+
+```typescript
+// ✅ Good
+const message = `Hello ${name}, you have ${count} items`
+
+// ❌ Bad
+const message = "Hello " + name + ", you have " + count + " items"
+```
+
+### Arrow Functions
+- Use concise arrow function syntax when possible
+- Omit braces and return for single expressions
+
+```typescript
+// ✅ Good
+const double = (x) => x * 2
+const isValid = (user) => user.age >= 18
+
+// ❌ Bad
+const double = (x) => { return x * 2 }
+const isValid = (user) => {
+  return user.age >= 18
+}
+```
+
+### Object/Array Destructuring
+- Use destructuring for cleaner code
+
+```typescript
+// ✅ Good
+const { name, age } = user
+const [first, second] = items
+
+// ❌ Bad
+const name = user.name
+const age = user.age
+```
+
+### Async/Await Over Promises
+- Prefer async/await over .then() chains
+
+```typescript
+// ✅ Good
+const data = await fetchData()
+const result = await processData(data)
+
+// ❌ Bad
+fetchData().then(data => {
+  return processData(data)
+})
+```
+
+### Const Over Let
+- Always use `const` unless reassignment is required
+- Never use `var`
+
+```typescript
+// ✅ Good
+const items = [1, 2, 3]
+let count = 0
+
+// ❌ Bad
+var items = [1, 2, 3]
+let unchangedValue = 5
+```
+
+### Type Imports
+- Use `import type` for type-only imports
+
+```typescript
+// ✅ Good
+import type { User } from "./types"
+import { fetchUser } from "./api"
+
+// ❌ Bad
+import { User, fetchUser } from "./module"
+```
+
+## Specific Patterns
+
+### Error Handling
+- Use custom error classes that extend AppError
+- Include correlation IDs in error responses
+- Always log errors with context
+
+### Middleware Patterns
+- Keep middleware functions pure and composable
+- Use factory functions that return middleware
+- Store context data in Hono context variables
+
+### Database Patterns
+- Use adapter pattern for database abstraction
+- All database operations through IDatabase interface
+- Never import concrete database implementations in services
+
+### Logging
+- Always use structured JSON logging
+- Include correlation ID in all logs
+- Sanitize sensitive data (passwords, tokens, etc.)
+
+## Edge-Friendly Code
+- Use Web APIs (fetch, crypto, etc.) over Node.js APIs
+- Avoid file system operations
+- No long-running background processes
+- Use Cloudflare bindings (D1, KV, R2) for storage
+
+## TypeScript
+- Enable strict mode always
+- Avoid `any` type (use `unknown` if needed)
+- Use type inference where clear
+- Define interfaces for all public APIs

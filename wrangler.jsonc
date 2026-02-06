@@ -4,9 +4,9 @@
  */
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
-	"name": "hono-lab2",
+	"name": "hono-lab",
 	"main": "src/index.ts",
-	"compatibility_date": "2025-09-27",
+	"compatibility_date": "2025-02-04",
 	"assets": {
 		"binding": "ASSETS",
 		"directory": "./public"
@@ -14,8 +14,17 @@
 	"observability": {
 		"enabled": true
 	},
-	"compatibility_flags": [
-		"nodejs_compat"
+	/**
+	 * D1 Database Binding
+	 * For local development, wrangler will create a local SQLite database
+	 * For production, create the database with: wrangler d1 create hono-lab2-db
+	 */
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "hono-lab2-db",
+			"database_id": "preview_only"
+		}
 	]
 	/**
 	 * Smart Placement
@@ -23,18 +32,12 @@
 	 */
 	// "placement": {  "mode": "smart" }
 	/**
-	 * Bindings
-	 * Bindings allow your Worker to interact with resources on the Cloudflare Developer Platform, including
-	 * databases, object storage, AI inference, real-time communication and more.
-	 * https://developers.cloudflare.com/workers/runtime-apis/bindings/
-	 */
-	/**
 	 * Environment Variables
 	 * https://developers.cloudflare.com/workers/wrangler/configuration/#environment-variables
 	 * Note: Use secrets to store sensitive data.
 	 * https://developers.cloudflare.com/workers/configuration/secrets/
 	 */
-	// "vars": {  "MY_VARIABLE": "production_value" }
+	// "vars": {  "MY_VARIABLE": "production_value", "LOG_LEVEL": "info", "ENVIRONMENT": "production" }
 	/**
 	 * Service Bindings (communicate between multiple Workers)
 	 * https://developers.cloudflare.com/workers/wrangler/configuration/#service-bindings

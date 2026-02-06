@@ -1,3 +1,14 @@
+# Hono Lab 
+
+## How it was setup
+
+```bash
+npm create cloudflare@latest
+```
+
+Then Framework -> Hono
+
+
 ```txt
 npm install
 npm run dev

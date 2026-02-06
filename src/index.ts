@@ -1,9 +1,9 @@
-import { Hono } from "hono";
+/**
+ * Cloudflare Workers entry point
+ * This is the main entry point for the application when deployed to Cloudflare Workers
+ */
+import { createApp } from "./app"
 
-const app = new Hono<{ Bindings: CloudflareBindings }>();
+const app = createApp()
 
-app.get("/message", (c) => {
-  return c.text("Hello Hono!");
-});
-
-export default app;
+export default app
