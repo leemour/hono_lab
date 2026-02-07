@@ -1,4 +1,4 @@
-import type { Context } from "hono"
+import type { Context, ContextVariableMap } from "hono"
 import type { Bindings } from "./config"
 import type { IDatabase } from "../lib/db"
 
@@ -7,10 +7,11 @@ import type { IDatabase } from "../lib/db"
  */
 export type AppContext = Context<{
 	Bindings: Bindings
-	Variables: {
+	Variables: ContextVariableMap & {
 		correlationId: string
 		requestStartTime: number
 		db?: IDatabase
+		user?: { userId: string; role?: string; iat?: number; exp?: number }
 	}
 }>
 
@@ -35,7 +36,7 @@ export interface HealthResponse {
 	version: string
 	environment: string
 	database?: {
-		adapter: "sqlite" | "d1" | "postgres"
+		adapter: "sqlite" | "d1"
 		connected: boolean
 	}
 }

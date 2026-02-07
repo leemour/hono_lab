@@ -19,7 +19,8 @@ export interface Logger {
 class StructuredLogger implements Logger {
 	constructor(
 		private correlationId: string,
-		private logLevel: LogLevel = "info"
+		private logLevel: LogLevel = "info",
+		private environment: "development" | "test" | "production" = "production"
 	) {}
 
 	private shouldLog(level: LogLevel): boolean {
@@ -32,29 +33,29 @@ class StructuredLogger implements Logger {
 	private log(level: LogLevel, message: string, metadata?: LogMetadata): void {
 		if (!this.shouldLog(level)) return
 
+		const timestamp = new Date().toISOString()
+		const correlationId = this.correlationId
+
+		if (this.environment !== "production") {
+			const line = formatKeyValueLine(level, message, {
+				timestamp,
+				correlation_id: correlationId,
+				...(metadata || {}),
+			})
+			writeConsole(level, line)
+			return
+		}
+
 		const logEntry = {
-			timestamp: new Date().toISOString(),
+			timestamp,
 			level,
 			message,
-			correlationId: this.correlationId,
+			correlation_id: correlationId,
 			...(metadata && { metadata }),
 		}
 
 		// Use appropriate console method
-		switch (level) {
-			case "debug":
-				console.debug(JSON.stringify(logEntry))
-				break
-			case "info":
-				console.info(JSON.stringify(logEntry))
-				break
-			case "warn":
-				console.warn(JSON.stringify(logEntry))
-				break
-			case "error":
-				console.error(JSON.stringify(logEntry))
-				break
-		}
+		writeConsole(level, JSON.stringify(logEntry))
 	}
 
 	debug(message: string, metadata?: LogMetadata): void {
@@ -80,5 +81,86 @@ class StructuredLogger implements Logger {
 export function createLogger(c: AppContext): Logger {
 	const correlationId = c.get("correlationId") || "no-correlation-id"
 	const logLevel = (c.env.LOG_LEVEL || "info") as LogLevel
-	return new StructuredLogger(correlationId, logLevel)
+	const environment = c.env.ENVIRONMENT || "production"
+	return new StructuredLogger(correlationId, logLevel, environment)
+}
+
+function writeConsole(level: LogLevel, line: string): void {
+	const output = line
+	switch (level) {
+		case "debug":
+			console.debug(output)
+			break
+		case "info":
+			console.info(output)
+			break
+		case "warn":
+			console.warn(output)
+			break
+		case "error":
+			console.error(output)
+			break
+	}
+}
+
+function formatKeyValueLine(
+	level: LogLevel,
+	message: string,
+	fields: Record<string, unknown>
+): string {
+	const parts: string[] = [message]
+	const orderedFields: Record<string, unknown> = {
+		timestamp: fields.timestamp,
+		level,
+		correlation_id: fields.correlation_id,
+	}
+
+	for (const [key, value] of Object.entries(fields)) {
+		if (key in orderedFields) continue
+		orderedFields[key] = value
+	}
+
+	for (const [key, value] of Object.entries(orderedFields)) {
+		if (value === undefined) continue
+		const formattedValue = formatValue(value)
+		parts.push(`${colorKey(key)}=${colorValue(formattedValue, level)}`)
+	}
+
+	return parts.join(" ")
+}
+
+function formatValue(value: unknown): string {
+	if (typeof value === "string") {
+		if (value === "") return '""'
+		if (/\s|=/.test(value)) return JSON.stringify(value)
+		return value
+	}
+	if (typeof value === "number" || typeof value === "boolean" || value === null) {
+		return String(value)
+	}
+	return JSON.stringify(value)
+}
+
+function colorKey(value: string): string {
+	return `\x1b[2m${value}\x1b[0m`
+}
+
+function colorValue(value: string, level: LogLevel): string {
+	const color = levelColor(level)
+	return `${color}${value}\x1b[0m`
+}
+
+function levelColor(level: LogLevel): string {
+	switch (level) {
+		case "debug":
+			return "\x1b[35m"
+		case "info":
+			return "\x1b[36m"
+		case "warn":
+			return "\x1b[33m"
+		case "error":
+			return "\x1b[31m"
+		default:
+			return "\x1b[0m"
+	}
 }

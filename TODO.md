@@ -1,108 +1,136 @@
-Act as a strict staff-level engineer and tech lead. Your job: design and implement a production-ready Cloudflare Workers + Hono template repo, using pnpm, TypeScript, and web-standards-first approach. You MUST create your own phased plan and execute step-by-step, but you must follow the rules below.
+# TODO Later
 
-Project context:
-- Repo already created via `npm create cloudflare@latest`, Framework -> Hono.
-- We want to switch to pnpm (and keep it consistent).
-- Target runtime: Cloudflare Workers.
-- Style target: “FastAPI Lab”-like: clean structure, robust defaults, tests, CI, logging, middleware, error handling, docs.
+## High ROI (do these early)
 
-HARD RULES (do not break):
-1) No “node server assumptions”: do not rely on fs/net/tls, child_process, long-lived connections, background daemons. Use Web APIs + Cloudflare bindings (D1/KV/R2/Queues/Durable Objects) where needed.
-2) Avoid nodejs_compat unless:
-   - you can justify it in one sentence, AND
-   - it is required by a specific dependency, AND
-   - you propose an alternative without nodejs_compat.
-3) Prefer minimal, high-quality dependencies. Every new dependency must be justified briefly (what problem it solves). Avoid “big frameworks”.
-4) Code must be TypeScript, strict type checking, and “edge-friendly”.
-5) Implement incrementally with small, reviewable commits:
-   - each commit: single purpose
-   - commit message: conventional commits (feat/fix/chore/test/docs/refactor)
-   - never mix formatting-only changes with functional changes unless necessary
-6) Provide acceptance criteria for each phase and verify locally (commands + expected output).
-7) Do not ask me questions unless absolutely necessary; make reasonable assumptions and proceed.
+### 1) Alerts (not just logs)
 
-QUALITY BAR:
-- Clean project structure under src/
-- API versioning (/v1)
-- Consistent JSON error responses
-- Structured JSON logging with correlation IDs
-- Middleware for request logging + correlation propagation
-- Testing in Workers-like environment (vitest + Cloudflare pool or best equivalent)
-- Linting/formatting (choose best default: eslint or biome; justify)
-- Typecheck script
-- Local dev works with wrangler
-- Documentation: README with quickstart, commands, and conventions
+Logs are useless at 3am unless something pings you.
 
-FEATURE SET (build toward these; order is up to you):
-A) Core skeleton
-- app composition, router modules, env config typing
-- /v1/health endpoint
-- notFound + global error handler with AppError
+* **Error rate** alert (5xx > X/min)
+* **Latency** alert (p95 > X ms)
+* **Queue backlog** alert (if you use Queues)
+  If Cloudflare-native alerting isn’t enough for your taste, use Sentry alerts or your APM’s alerting.
 
-B) Logging & tracing basics
-- structured logs (JSON) via console
-- correlation-id middleware (request header → context → response header)
-- request/response timing logs
-- optional: sampling or log-level control via env
+### 2) Source maps + release tracking
 
-C) D1 + ORM + migrations
-- Add Cloudflare D1 binding in wrangler
-- ORM recommendation: Drizzle
-- Schema + migrations + minimal repository/query patterns
-- Example entity and endpoints (e.g., webhooks inbox)
+Without source maps your stack traces are garbage.
 
-D) Webhook inbox + async processing
-- Endpoint to receive arbitrary webhooks (store raw + headers + timestamp)
-- List/retrieve endpoints with pagination
-- Add Queues integration (receive → enqueue → process) as a later phase
-- Webhook signature verification example using WebCrypto (optional)
+* Upload sourcemaps on deploy (Sentry makes this painless)
+* Tag releases (git SHA) so you know “this started after deploy X”
 
-E) Auth (later phase)
-- JWT-based auth (edge-friendly)
-- Middleware + token issuing endpoint for dev/testing
-- Keep simple, but correct
+### 3) Request IDs / Correlation IDs end-to-end
 
-F) CI (later phase)
-- GitHub Actions: install, lint, typecheck, test
-- cache pnpm store
-- fail on errors
+You already planned correlation IDs—make it *real*:
 
-G) Optional niceties
-- OpenAPI export (only if you can do it cleanly on Workers)
-- Rate limiting (Durable Objects / KV-based) if justified
-- Basic metrics hooks (if minimal)
+* accept `x-correlation-id` from clients
+* propagate it to downstream `fetch()` calls
+* include it in every log and error event
 
-SETUP REQUIREMENTS (tell me and implement):
-- Convert repo to pnpm:
-  - remove package-lock, create pnpm-lock
-  - update scripts accordingly
-  - ensure wrangler commands still work
-- Provide “what to install locally” list:
-  - Node version recommendation
-  - pnpm installation
-  - wrangler login notes (if needed)
-- Provide “one-command” local dev and “one-command” tests
+### 4) Rate limiting / abuse protection
 
-DELIVERABLES FOR EACH PHASE:
-1) A short phase description (goals)
-2) The exact file changes (paths)
-3) The exact commands to run
-4) How to verify it works
-5) What’s next
+Workers are exposed to the internet; you will get scraped and probed.
 
-NOW DO THIS:
-1) Inspect current repository files (package.json, wrangler.toml, src/*, tsconfig, etc.).
-2) Propose a phased plan (6–10 phases) that reaches the full feature set above.
-3) Execute Phase 1 immediately in code:
-   - pnpm conversion
-   - core skeleton with /v1/health
-   - correlation id middleware
-   - request logging middleware
-   - global error handling + notFound
-   - tests framework wired and one test for /v1/health
-   - README quickstart with pnpm commands
-4) After Phase 1, show me:
-   - commands to run
-   - expected curl output
-   - how to run tests
-5) Stop and wait for my “go” to proceed to Phase 2.
+* Basic per-IP rate limit for sensitive routes (`/auth/*`, `/webhooks/*`)
+* For real: use **Durable Objects** or KV-based counters, or Cloudflare WAF rules
+  Keep it simple: protect the obvious first.
+
+### 5) Health checks that actually mean something
+
+Not just “returns 200”.
+
+* check D1 connectivity (simple `SELECT 1`)
+* check KV/R2 access if you depend on them
+  Expose: `/v1/health` (light) and `/v1/health/deep` (heavy; internal only).
+
+## Medium ROI (add when the app becomes real)
+
+
+### 7) Dead-letter / retry strategy for webhooks & jobs
+
+Webhooks will fail. Plan for it:
+
+* queue message retries
+* dead-letter queue or D1 “failed_jobs” table
+* admin endpoint to reprocess
+
+<!-- ### 8) Feature flags
+
+Even “poor man’s feature flags” saves releases:
+
+* KV/DB-stored flags per env
+* enable/disable risky features instantly -->
+
+<!-- ### 9) Request/response logging **sampling**
+
+Full logging is expensive/noisy.
+
+* log 100% errors
+* sample 1–5% of success
+* always log slow requests (> N ms) -->
+
+### 10) Security headers + CORS discipline
+
+* strict CORS for your SPA domain only
+* security headers for public endpoints
+* validate content-type for JSON endpoints
+
+## Later / “grown-up” stack (when you have money or complexity)
+
+<!-- ### 11) OpenTelemetry tracing
+
+If you end up with multiple services:
+
+* OTEL spans per request
+* trace IDs across Worker → DB/API calls
+  Cloudflare supports OTEL export paths; APMs shine here. -->
+
+<!-- ### 12) Metrics you actually care about (business)
+
+Technical metrics don’t tell you product health.
+Track counters like:
+
+* signups
+* webhook deliveries success/fail
+* task executions
+* billing events
+  You can ship these as events to your analytics/warehouse. -->
+
+### 13) Secrets management & rotation
+
+* keep all secrets in Workers bindings
+* plan rotation for webhook secrets / JWT keys
+
+<!-- ### 14) Backups / data export plan
+
+D1 is managed, but you still want:
+
+* periodic exports
+* ability to move to Postgres later if needed -->
+
+---
+
+## My “small team, sane defaults” checklist
+
+If you want one tight list:
+
+**Now**
+
+* structured JSON logs
+* correlation ID propagation
+* Sentry + sourcemaps + release tags
+* basic error/latency alerts
+* deep health endpoint
+
+**Soon**
+
+* rate limiting on auth/webhooks
+* audit log
+* webhook retries + dead-letter
+
+**Later**
+
+* OTEL tracing
+* feature flags
+* business metrics/events
+
+If you tell me your usage pattern (webhooks-heavy? mostly interactive API for SPA? expected RPS?), I can prioritize this into a 2–3 sprint plan and suggest exactly which parts to implement inside Workers vs offload to third parties.

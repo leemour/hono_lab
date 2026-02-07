@@ -15,10 +15,10 @@
 		"test:watch": "vitest",
 		"test:coverage": "vitest run --coverage",
 		"db:generate:sqlite": "drizzle-kit generate --config=drizzle.config.ts --name=sqlite",
-		"db:generate:postgres": "drizzle-kit generate --config=drizzle.config.ts --name=postgres",
-		"db:migrate:local": "tsx scripts/migrate-local.ts",
-		"db:migrate:d1": "wrangler d1 migrations apply hono-lab2-db",
-		"db:studio": "drizzle-kit studio"
+		"db:migrate:local": "tsx scripts/migrate.ts",
+		"db:migrate:d1": "wrangler d1 migrations apply hono-lab2-db --remote",
+		"db:studio": "drizzle-kit studio",
+		"build": "tsc"
 	},
 	"dependencies": {
 		"drizzle-orm": "^0.45.1",
@@ -28,14 +28,12 @@
 		"@biomejs/biome": "^2.3.14",
 		"@cloudflare/vitest-pool-workers": "^0.12.10",
 		"@cloudflare/workers-types": "^4.20260206.0",
-		"@types/better-sqlite3": "^7.6.13",
-		"@types/node": "^25.2.1",
-		"better-sqlite3": "^12.6.2",
+		"@types/better-sqlite3": "7.6.13",
+		"better-sqlite3": "12.6.2",
 		"drizzle-kit": "^0.31.8",
-		"postgres": "^3.4.8",
 		"tsx": "^4.21.0",
 		"typescript": "^5.9.3",
-		"vitest": "^4.0.18",
+		"vitest": "3.2.4",
 		"wrangler": "^4.63.0"
 	}
 }

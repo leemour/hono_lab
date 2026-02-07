@@ -1,6 +1,5 @@
 import { Hono } from "hono"
 import type { AppContext, HealthResponse } from "../../core/types"
-import { createDatabase } from "../../lib/db"
 
 const health = new Hono<{ Bindings: AppContext["env"]; Variables: AppContext["var"] }>()
 
@@ -17,18 +16,19 @@ health.get("/", async (c) => {
 	}
 
 	// Check database connection if available
-	try {
-		const db = await createDatabase(c.env)
-		const isConnected = await db.healthCheck()
-		response.database = {
-			adapter: db.getAdapterType(),
-			connected: isConnected,
-		}
-	} catch (_error) {
-		// Database not configured or connection failed
-		response.database = {
-			adapter: "sqlite",
-			connected: false,
+	const db = c.get("db")
+	if (db) {
+		try {
+			const isConnected = await db.healthCheck()
+			response.database = {
+				adapter: db.getAdapterType(),
+				connected: isConnected,
+			}
+		} catch (_error) {
+			response.database = {
+				adapter: db.getAdapterType(),
+				connected: false,
+			}
 		}
 	}
 

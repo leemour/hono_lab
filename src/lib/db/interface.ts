@@ -15,7 +15,7 @@ export interface IDatabase<TDrizzle = any> {
 	/**
 	 * Get the database adapter type
 	 */
-	getAdapterType(): "sqlite" | "d1" | "postgres"
+	getAdapterType(): "sqlite" | "d1"
 
 	/**
 	 * Check if database connection is healthy

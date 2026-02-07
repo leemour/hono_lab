@@ -12,9 +12,6 @@ export type Bindings = {
 	// Database - D1 (Cloudflare Workers)
 	DB?: D1Database
 
-	// Database - PostgreSQL (Docker/VM)
-	DATABASE_URL?: string
-
 	// JWT Authentication
 	JWT_SECRET?: string
 

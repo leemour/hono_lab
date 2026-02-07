@@ -11,7 +11,7 @@ const db = drizzle(sqlite)
 console.log("🔄 Running local SQLite migrations...")
 
 try {
-	migrate(db, { migrationsFolder: "./migrations" })
+	migrate(db, { migrationsFolder: "./db/migrations" })
 	console.log("✅ Migrations completed successfully")
 } catch (error) {
 	console.error("❌ Migration failed:", error)

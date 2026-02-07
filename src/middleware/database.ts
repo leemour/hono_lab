@@ -1,6 +1,9 @@
 import type { MiddlewareHandler } from "hono"
 import { createDatabase } from "../lib/db"
 import type { AppContext } from "../core/types"
+import type { IDatabase } from "../lib/db"
+
+export type CreateDatabase = (env: AppContext["env"]) => Promise<IDatabase>
 
 /**
  * Database middleware
@@ -10,7 +13,9 @@ import type { AppContext } from "../core/types"
  * If database initialization fails, the request continues without a db
  * Routes can check if db is available and handle accordingly
  */
-export const databaseMiddleware = (): MiddlewareHandler<{
+export const databaseMiddleware = (
+	createDb: CreateDatabase = createDatabase
+): MiddlewareHandler<{
 	Bindings: AppContext["env"]
 	Variables: AppContext["var"]
 }> => {
@@ -18,7 +23,7 @@ export const databaseMiddleware = (): MiddlewareHandler<{
 		// Only initialize database once per context
 		if (!c.get("db")) {
 			try {
-				const db = await createDatabase(c.env)
+				const db = await createDb(c.env)
 				c.set("db", db)
 			} catch (error) {
 				// Database initialization failed, but don't block the request

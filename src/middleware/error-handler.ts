@@ -2,6 +2,7 @@ import type { Context, ErrorHandler } from "hono"
 import { AppError } from "../core/errors"
 import type { AppContext, ErrorResponse } from "../core/types"
 import { createLogger } from "../lib/logger"
+import { captureException, initSentry } from "../lib/sentry"
 
 /**
  * Global error handler middleware
@@ -11,6 +12,7 @@ export const errorHandler: ErrorHandler<{
 	Bindings: AppContext["env"]
 	Variables: AppContext["var"]
 }> = (err: Error, c: Context) => {
+	initSentry(c.env)
 	const logger = createLogger(c as AppContext)
 	const correlationId = c.get("correlationId") || "no-correlation-id"
 
@@ -20,6 +22,21 @@ export const errorHandler: ErrorHandler<{
 		stack: err.stack,
 		name: err.name,
 	})
+
+	// Send error to Sentry (if configured)
+	try {
+		captureException(err, {
+			correlationId,
+			url: c.req.url,
+			method: c.req.method,
+			path: c.req.path,
+		})
+	} catch (sentryError) {
+		// Silently fail if Sentry is not configured or has an error
+		logger.error("Failed to send error to Sentry", {
+			error: sentryError instanceof Error ? sentryError.message : String(sentryError),
+		})
+	}
 
 	// Handle AppError instances
 	if (err instanceof AppError) {

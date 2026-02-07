@@ -1,5 +1,7 @@
 import { Hono } from "hono"
 import type { AppContext } from "./core/types"
+import type { Bindings } from "./core/config"
+import type { CreateDatabase } from "./middleware/database"
 import { NotFoundError } from "./core/errors"
 import {
 	correlationMiddleware,
@@ -14,9 +16,20 @@ import { registerRoutes } from "./routes"
 /**
  * Create and configure the Hono application
  * This factory function sets up all middleware and routes
+ *
+ * @param bindings - Optional environment bindings (required for Node.js, optional for Workers)
  */
-export function createApp() {
+export function createApp(bindings?: Bindings, options?: { createDatabase?: CreateDatabase }) {
 	const app = new Hono<{ Bindings: AppContext["env"]; Variables: AppContext["var"] }>()
+
+	// For Node.js runtime, inject bindings into every request
+	if (bindings) {
+		app.use("*", async (c, next) => {
+			// Merge provided bindings with any runtime bindings
+			c.env = { ...bindings, ...c.env }
+			await next()
+		})
+	}
 
 	// Set error handler
 	app.onError(errorHandler)
@@ -24,7 +37,7 @@ export function createApp() {
 	// Apply middleware in order
 	app.use("*", correlationMiddleware())
 	app.use("*", loggerMiddleware())
-	app.use("*", databaseMiddleware()) // Initialize database once per request
+	app.use("*", databaseMiddleware(options?.createDatabase)) // Initialize database once per request
 	app.use("*", securityHeaders())
 	app.use("*", corsMiddleware())
 

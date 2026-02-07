@@ -11,7 +11,7 @@ export class SQLiteAdapter implements IDatabase {
 	private db: BetterSQLite3Database<typeof schema>
 	private sqlite: Database.Database
 
-	constructor(dbPath = "./local.db") {
+	constructor(dbPath = "./db/local.db") {
 		this.sqlite = new Database(dbPath)
 		this.db = drizzle(this.sqlite, { schema })
 	}

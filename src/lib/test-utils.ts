@@ -34,13 +34,6 @@ export function mockEnv(overrides?: Partial<Bindings>): Bindings {
 }
 
 /**
- * Helper to extract JSON from response
- */
-export async function getResponseJson<T = Record<string, unknown>>(response: Response): Promise<T> {
-	return (await response.json()) as T
-}
-
-/**
  * Helper to check if UUID v4 format
  */
 export function isValidUUIDv4(uuid: string): boolean {

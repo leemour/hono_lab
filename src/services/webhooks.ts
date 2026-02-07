@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm"
+import { eq, count } from "drizzle-orm"
 import type { IDatabase, Webhook, NewWebhook } from "../lib/db"
 import { webhooks } from "../lib/db"
 
@@ -55,12 +55,14 @@ export class WebhookService {
 			.offset(offset)
 			.orderBy(webhooks.receivedAt)
 
-		// Get total count
-		const [{ count }] = await drizzle.select({ count: webhooks.id }).from(webhooks).count()
+		// Get total count using count() aggregation
+		const countResult = await drizzle.select({ count: count() }).from(webhooks)
+
+		const total = countResult[0]?.count ? Number(countResult[0].count) : 0
 
 		return {
 			data,
-			total: count || 0,
+			total,
 		}
 	}
 
