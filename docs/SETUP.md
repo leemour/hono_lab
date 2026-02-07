@@ -19,6 +19,7 @@ Key variables:
 - `JWT_SECRET` (required for auth)
 - `LOG_LEVEL` (info | warn | error | debug | silent)
 - `SQLITE_DB_PATH` (SQLite)
+- `WEBHOOK_SECRET` (webhook security)
 - `SENTRY_*` (optional, for releases and error reporting)
 
 ## Local Development

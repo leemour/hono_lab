@@ -32,13 +32,6 @@ export const loggerMiddleware = (): MiddlewareHandler<{
 		const logger = createLogger(c)
 		const startTime = c.get("requestStartTime")
 
-		// Log incoming request
-		logger.info("Incoming request", {
-			method: c.req.method,
-			path: c.req.path,
-			headers: sanitizeHeaders(c.req.raw.headers),
-		})
-
 		// Continue with request
 		await next()
 
@@ -53,7 +46,10 @@ export const loggerMiddleware = (): MiddlewareHandler<{
 			method: c.req.method,
 			path: c.req.path,
 			status,
-			duration: `${duration.toFixed(2)}ms`,
+			headers: sanitizeHeaders(c.req.raw.headers),
+			note: "🏁 Completed",
+			duration: `${Math.round(duration)}ms`,
 		})
 	}
 }
+

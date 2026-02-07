@@ -1,8 +1,9 @@
 import { Hono } from "hono"
 import type { Bindings } from "../../core/config"
 import type { IDatabase } from "../../lib/db"
-import { NotFoundError, ValidationError } from "../../core/errors"
+import { NotFoundError, ValidationError, InternalServerError } from "../../core/errors"
 import { WebhookService } from "../../services/webhooks"
+import { verifyWebhookSignature } from "../../lib/webhook-verify"
 
 const app = new Hono<{
 	Bindings: Bindings
@@ -17,11 +18,33 @@ const app = new Hono<{
 /**
  * POST /v1/webhooks/receive
  * Receive and store a webhook
+ * Optionally verifies webhook signature if WEBHOOK_SECRET is configured
  */
 app.post("/receive", async (c) => {
 	const db = c.get("db")
 	if (!db) {
-		throw new Error("Database not initialized")
+		throw new InternalServerError("Database not initialized")
+	}
+
+	// Optional webhook signature verification
+	const webhookSecret = c.env.WEBHOOK_SECRET
+	if (webhookSecret) {
+		// Verify signature using middleware inline
+		const signature = c.req.header("x-webhook-signature")
+		if (!signature) {
+			throw new ValidationError("Missing webhook signature (x-webhook-signature header required)")
+		}
+		
+		// Clone request to read body for verification
+		const clonedRequest = c.req.raw.clone()
+		const bodyForVerification = await clonedRequest.text()
+		
+		// Import and verify
+		const { verifyHmacSignature } = await import("../../lib/webhook-verify")
+		const isValid = await verifyHmacSignature(bodyForVerification, signature, webhookSecret)
+		if (!isValid) {
+			throw new ValidationError("Invalid webhook signature")
+		}
 	}
 
 	// Get request details
@@ -31,9 +54,10 @@ app.post("/receive", async (c) => {
 
 	// Get headers (sanitize sensitive ones)
 	const headers: Record<string, string> = {}
+	const sensitiveHeaders = new Set(['authorization', 'x-api-key', 'x-auth-token', 'cookie'])
 	c.req.raw.headers.forEach((value, key) => {
-		// Exclude authorization and sensitive headers
-		if (!key.toLowerCase().includes("authorization") && !key.toLowerCase().includes("token")) {
+		// Exclude specific sensitive headers
+		if (!sensitiveHeaders.has(key.toLowerCase())) {
 			headers[key] = value
 		}
 	})
@@ -72,7 +96,7 @@ app.post("/receive", async (c) => {
 app.get("/", async (c) => {
 	const db = c.get("db")
 	if (!db) {
-		throw new Error("Database not initialized")
+		throw new InternalServerError("Database not initialized")
 	}
 
 	// Parse pagination params
@@ -120,7 +144,7 @@ app.get("/", async (c) => {
 app.get("/:id", async (c) => {
 	const db = c.get("db")
 	if (!db) {
-		throw new Error("Database not initialized")
+		throw new InternalServerError("Database not initialized")
 	}
 
 	const idParam = c.req.param("id")

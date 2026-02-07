@@ -1,6 +1,6 @@
 import { createMiddleware } from "hono/factory"
 import type { AppContext } from "../core/types"
-import { UnauthorizedError } from "../core/errors"
+import { UnauthorizedError, InternalServerError } from "../core/errors"
 import { verifyToken, type TokenPayload } from "../lib/auth/jwt"
 
 type AuthEnv = {
@@ -31,11 +31,11 @@ export function requireAuth() {
 
 		const token = parts[1]
 
-		// Get JWT secret from environment
-		const secret = c.env.JWT_SECRET
-		if (!secret) {
-			throw new Error("JWT_SECRET not configured")
-		}
+	// Get JWT secret from environment
+	const secret = c.env.JWT_SECRET
+	if (!secret) {
+		throw new InternalServerError("JWT_SECRET not configured")
+	}
 
 		// Verify token
 		try {

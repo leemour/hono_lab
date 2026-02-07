@@ -33,12 +33,12 @@ class StructuredLogger implements Logger {
 	private log(level: LogLevel, message: string, metadata?: LogMetadata): void {
 		if (!this.shouldLog(level)) return
 
-		const timestamp = new Date().toISOString()
+		const timestamp = new Date()
 		const correlationId = this.correlationId
 
 		if (this.environment !== "production") {
-			const line = formatKeyValueLine(level, message, {
-				timestamp,
+			const line = formatKeyValueLine(message, level, {
+				timestamp: formatShortTimestamp(timestamp),
 				correlation_id: correlationId,
 				...(metadata || {}),
 			})
@@ -47,7 +47,7 @@ class StructuredLogger implements Logger {
 		}
 
 		const logEntry = {
-			timestamp,
+			timestamp: timestamp.toISOString(),
 			level,
 			message,
 			correlation_id: correlationId,
@@ -104,19 +104,51 @@ function writeConsole(level: LogLevel, line: string): void {
 }
 
 function formatKeyValueLine(
-	level: LogLevel,
 	message: string,
+	level: LogLevel,
 	fields: Record<string, unknown>
 ): string {
-	const parts: string[] = [message]
+	const prefixParts: string[] = []
+	const timestamp = fields.timestamp
+	const method = fields.method
+	const status = fields.status
+	const path = fields.path
+	const note = typeof fields.note === "string" ? fields.note : undefined
+	const durationValue = fields.duration
+
+	if (typeof timestamp === "string") {
+		prefixParts.push(colorDim(`${timestamp} ${levelEmoji(level)}`))
+	}
+	if (typeof method === "string") {
+		prefixParts.push(` ${method}`)
+	}
+	if (typeof status === "number" || typeof status === "string") {
+		prefixParts.push(colorStatus(String(status)))
+	}
+	if (typeof path === "string") {
+		prefixParts.push(colorPath(path))
+	}
+
+	const parts: string[] = [prefixParts.join(" ") || message]
+	if (note) {
+		prefixParts.push(note)
+	}
 	const orderedFields: Record<string, unknown> = {
-		timestamp: fields.timestamp,
-		level,
 		correlation_id: fields.correlation_id,
 	}
 
 	for (const [key, value] of Object.entries(fields)) {
 		if (key in orderedFields) continue
+		if (
+			key === "timestamp" ||
+			key === "method" ||
+			key === "status" ||
+			key === "path" ||
+			key === "note" ||
+			key === "duration"
+		) {
+			continue
+		}
 		orderedFields[key] = value
 	}
 
@@ -126,12 +158,17 @@ function formatKeyValueLine(
 		parts.push(`${colorKey(key)}=${colorValue(formattedValue, level)}`)
 	}
 
+	const duration = formatDuration(durationValue)
+	if (duration) {
+		parts.push(colorDim(`[${duration}]`))
+	}
+
 	return parts.join(" ")
 }
 
 function formatValue(value: unknown): string {
 	if (typeof value === "string") {
-		if (value === "") return '""'
+		if (value === "") return "\"\""
 		if (/\s|=/.test(value)) return JSON.stringify(value)
 		return value
 	}
@@ -150,6 +187,59 @@ function colorValue(value: string, level: LogLevel): string {
 	return `${color}${value}\x1b[0m`
 }
 
+function colorDim(value: string): string {
+	return `\x1b[2m${value}\x1b[0m`
+}
+
+function colorStatus(value: string): string {
+	const status = Number(value)
+	if (Number.isNaN(status)) {
+		return value
+	}
+	if (status >= 200 && status < 300) {
+		return `\x1b[32m${status}\x1b[0m`
+	}
+	if (status >= 300 && status < 400) {
+		return `\x1b[33m${status}\x1b[0m`
+	}
+	if (status >= 400 && status < 500) {
+		return `\x1b[38;5;208m${status}\x1b[0m`
+	}
+	if (status >= 500 && status < 600) {
+		return `\x1b[31m${status}\x1b[0m`
+	}
+	return value
+}
+
+function levelEmoji(level: LogLevel): string {
+	switch (level) {
+		case "debug":
+			return "🧪"
+		case "info":
+			return "ℹ️"
+		case "warn":
+			return "⚠️"
+		case "error":
+			return "❌"
+		default:
+			return "•"
+	}
+}
+
+function colorPath(value: string): string {
+	return `\x1b[34m${value}\x1b[0m`
+}
+
+function formatDuration(value: unknown): string | undefined {
+	if (typeof value === "number") {
+		return `${Math.round(value)}ms`
+	}
+	if (typeof value === "string" && value.length > 0) {
+		return value
+	}
+	return undefined
+}
+
 function levelColor(level: LogLevel): string {
 	switch (level) {
 		case "debug":
@@ -163,4 +253,14 @@ function levelColor(level: LogLevel): string {
 		default:
 			return "\x1b[0m"
 	}
+}
+
+function formatShortTimestamp(date: Date): string {
+	const month = String(date.getMonth() + 1).padStart(2, "0")
+	const day = String(date.getDate()).padStart(2, "0")
+	const hours = String(date.getHours()).padStart(2, "0")
+	const minutes = String(date.getMinutes()).padStart(2, "0")
+	const seconds = String(date.getSeconds()).padStart(2, "0")
+	const millis = String(date.getMilliseconds()).padStart(3, "0")
+	return `${month}-${day} ${hours}:${minutes}:${seconds}.${millis}`
 }

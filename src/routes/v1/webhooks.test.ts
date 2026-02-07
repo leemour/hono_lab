@@ -93,6 +93,81 @@ describe("Webhook Routes", () => {
 			const data = (await response.json()) as { id: number }
 			expect(data).toHaveProperty("id")
 		})
+
+		it("should verify webhook signature when WEBHOOK_SECRET is set", async () => {
+			const testPayload = JSON.stringify({ test: "signed-data" })
+			const webhookSecret = "test-secret-key"
+
+			// Calculate valid signature
+			const encoder = new TextEncoder()
+			const keyData = encoder.encode(webhookSecret)
+			const key = await crypto.subtle.importKey(
+				"raw",
+				keyData,
+				{ name: "HMAC", hash: "SHA-256" },
+				false,
+				["sign"]
+			)
+			const signatureBuffer = await crypto.subtle.sign("HMAC", key, encoder.encode(testPayload))
+			const validSignature = Array.from(new Uint8Array(signatureBuffer))
+				.map((b) => b.toString(16).padStart(2, "0"))
+				.join("")
+
+			const req = createTestRequest("http://localhost/v1/webhooks/receive", {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					"x-webhook-signature": validSignature,
+				},
+				body: testPayload,
+			})
+
+			const envWithSecret = { ...mockEnv(), WEBHOOK_SECRET: webhookSecret }
+			const response = await app.fetch(req, envWithSecret, createTestContext())
+
+			expect(response.status).toBe(201)
+		})
+
+		it("should reject webhook with invalid signature when WEBHOOK_SECRET is set", async () => {
+			const testPayload = JSON.stringify({ test: "signed-data" })
+
+			const req = createTestRequest("http://localhost/v1/webhooks/receive", {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					"x-webhook-signature": "invalid-signature",
+				},
+				body: testPayload,
+			})
+
+			const envWithSecret = { ...mockEnv(), WEBHOOK_SECRET: "test-secret-key" }
+			const response = await app.fetch(req, envWithSecret, createTestContext())
+
+			expect(response.status).toBe(400)
+			const data = (await response.json()) as ErrorResponse
+			expect(data.error.code).toBe("VALIDATION_ERROR")
+			expect(data.error.message).toContain("signature")
+		})
+
+		it("should reject webhook without signature when WEBHOOK_SECRET is set", async () => {
+			const testPayload = JSON.stringify({ test: "signed-data" })
+
+			const req = createTestRequest("http://localhost/v1/webhooks/receive", {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: testPayload,
+			})
+
+			const envWithSecret = { ...mockEnv(), WEBHOOK_SECRET: "test-secret-key" }
+			const response = await app.fetch(req, envWithSecret, createTestContext())
+
+			expect(response.status).toBe(400)
+			const data = (await response.json()) as ErrorResponse
+			expect(data.error.code).toBe("VALIDATION_ERROR")
+			expect(data.error.message).toContain("signature")
+		})
 	})
 
 	describe("GET /v1/webhooks", () => {

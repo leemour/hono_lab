@@ -3,13 +3,12 @@ import type { IDatabase } from "./interface"
 
 /**
  * Database factory for Cloudflare Workers.
- * Only supports D1 to avoid bundling Node-only dependencies.
+ * Supports D1 binding for production Workers environments.
+ * For local development with SQLite, use the SQLite adapter directly.
  */
 export async function createDatabase(env: Bindings): Promise<IDatabase> {
 	// Check for D1 binding (Cloudflare Workers)
 	if (env.DB) {
-		if (env.ENVIRONMENT === "development")
-			console.log("📦 Using D1 database adapter (Cloudflare Workers)")
 		const { D1Adapter } = await import("./adapters/d1")
 		return new D1Adapter(env.DB)
 	}

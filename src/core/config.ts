@@ -15,6 +15,9 @@ export type Bindings = {
 	// JWT Authentication
 	JWT_SECRET?: string
 
+	// Webhook Security
+	WEBHOOK_SECRET?: string
+
 	// Sentry
 	SENTRY_DSN?: string
 	SENTRY_ENVIRONMENT?: string

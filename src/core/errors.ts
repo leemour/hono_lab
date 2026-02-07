@@ -10,7 +10,10 @@ export class AppError extends Error {
 	) {
 		super(message)
 		this.name = this.constructor.name
-		Error.captureStackTrace(this, this.constructor)
+		// Guard for Worker compatibility - captureStackTrace may not exist
+		if (Error.captureStackTrace) {
+			Error.captureStackTrace(this, this.constructor)
+		}
 	}
 
 	toJSON() {
@@ -66,5 +69,14 @@ export class ForbiddenError extends AppError {
 export class ConflictError extends AppError {
 	constructor(message = "Resource conflict", details?: Record<string, unknown>) {
 		super(message, 409, "CONFLICT", details)
+	}
+}
+
+/**
+ * 500 Internal Server error
+ */
+export class InternalServerError extends AppError {
+	constructor(message = "Internal server error", details?: Record<string, unknown>) {
+		super(message, 500, "INTERNAL_ERROR", details)
 	}
 }

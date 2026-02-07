@@ -1,7 +1,7 @@
 import { Hono } from "hono"
 import type { Bindings } from "../../core/config"
 import type { IDatabase } from "../../lib/db"
-import { ValidationError } from "../../core/errors"
+import { ValidationError, InternalServerError } from "../../core/errors"
 import { generateToken } from "../../lib/auth/jwt"
 import { requireAuth } from "../../middleware/auth"
 
@@ -30,7 +30,7 @@ app.post("/token", async (c) => {
 	// Get JWT secret from environment
 	const secret = c.env.JWT_SECRET
 	if (!secret) {
-		throw new Error("JWT_SECRET not configured")
+		throw new InternalServerError("JWT_SECRET not configured")
 	}
 
 	// Generate token
