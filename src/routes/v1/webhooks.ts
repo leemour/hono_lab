@@ -1,7 +1,7 @@
 import { Hono } from "hono"
 import type { Bindings } from "../../core/config"
 import type { IDatabase } from "../../lib/db"
-import { NotFoundError, ValidationError, InternalServerError } from "../../core/errors"
+import { NotFoundError, ValidationError, InternalServerError, UnauthorizedError } from "../../core/errors"
 import { WebhookService } from "../../services/webhooks"
 import { verifyWebhookSignature } from "../../lib/webhook-verify"
 
@@ -32,18 +32,18 @@ app.post("/receive", async (c) => {
 		// Verify signature using middleware inline
 		const signature = c.req.header("x-webhook-signature")
 		if (!signature) {
-			throw new ValidationError("Missing webhook signature (x-webhook-signature header required)")
+			throw new UnauthorizedError("Missing webhook signature (x-webhook-signature header required)")
 		}
-		
+
 		// Clone request to read body for verification
 		const clonedRequest = c.req.raw.clone()
 		const bodyForVerification = await clonedRequest.text()
-		
+
 		// Import and verify
 		const { verifyHmacSignature } = await import("../../lib/webhook-verify")
 		const isValid = await verifyHmacSignature(bodyForVerification, signature, webhookSecret)
 		if (!isValid) {
-			throw new ValidationError("Invalid webhook signature")
+			throw new UnauthorizedError("Invalid webhook signature")
 		}
 	}
 

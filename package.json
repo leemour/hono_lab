@@ -18,6 +18,7 @@
 		"db:migrate:local": "tsx scripts/migrate.ts",
 		"db:migrate:d1": "wrangler d1 migrations apply hono-lab2-db --remote",
 		"db:studio": "drizzle-kit studio",
+		"webhook:sign": "tsx scripts/webhook-sign.ts",
 		"build": "tsc"
 	},
 	"dependencies": {

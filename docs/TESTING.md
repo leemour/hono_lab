@@ -1,81 +1,73 @@
 # Testing
 
-The project uses Vitest with the Cloudflare Workers pool.
+## Authentication
 
-## Run Tests
+### Generate JWT Token
+
+To get a JWT token for authenticated endpoints:
+
 ```bash
-pnpm test
-pnpm test:watch
-pnpm test:coverage
+http POST localhost:8787/v1/auth/token userId="user123" role="admin"
 ```
 
-## Test Utilities
-Helpers live in `src/lib/test-utils.ts`:
-- `createTestRequest(url, init?)`
-- `mockEnv(overrides?)`
-- `createTestContext()`
-- `getResponseJson<T>(response)`
-- `isValidUUIDv4(uuid)`
-
-## Structure and Style
-- Use nested `describe` blocks for hierarchy
-- Prefer Arrange / Act / Assert
-- Keep tests focused on one behavior
-
-Example structure:
-```ts
-describe("Feature", () => {
-  let app: Hono
-
-  beforeAll(() => {
-    app = createApp()
-  })
-
-  describe("Specific behavior", () => {
-    it("should do something", async () => {
-      const req = createTestRequest("http://localhost/api/endpoint")
-      const res = await app.fetch(req, mockEnv(), createTestContext())
-      expect(res.status).toBe(200)
-    })
-  })
-})
+Response:
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "expiresIn": 86400
+}
 ```
 
-## Vitest Config Notes
-`vitest.config.ts` uses the Workers pool and verbose reporting.
+### Use JWT Token
 
-## Test Output
-Logs are silenced in tests by default using:
-```ts
-mockEnv({ LOG_LEVEL: "silent" })
-```
+Use the token in the `Authorization` header for authenticated endpoints:
 
-## Debugging
-Run a single file:
 ```bash
-pnpm vitest run src/routes/v1/health.test.ts
+http GET localhost:8787/v1/auth/me \
+  Authorization:"Bearer <token>"
 ```
 
-Run a single test:
+## Webhooks
+
+Webhook endpoints use **HMAC-SHA256 signatures** for verification, not JWT tokens.
+
+### Generate Signed Webhook Request
+
+Use the built-in script to generate a properly signed webhook request:
+
 ```bash
-pnpm vitest run -t "should return healthy status"
+pnpm webhook:sign '{"message":"Hello, world!"}'
 ```
 
-Debug mode:
+This will output a ready-to-use `http` command with the correct signature:
+
 ```bash
-node --inspect-brk ./node_modules/.bin/vitest
+echo -n '{"message":"Hello, world!"}' | http POST localhost:8787/v1/webhooks/receive \
+  x-webhook-signature:27093ea3d8c625c743fe9dce7a660ec49fbe194113cebe8dd8339675d9469fe1 \
+  content-type:application/json
 ```
 
-## Common Issues
-better-sqlite3 errors in Workers tests:
-- Use dynamic imports in adapters (already in place)
-- Prefer D1 in the Workers environment
+### How Webhook Signatures Work
 
-Flaky tests:
-- Avoid shared state
-- Use `beforeEach` instead of `beforeAll`
+1. The webhook signature is an **HMAC-SHA256** hash of the request body
+2. It uses the `WEBHOOK_SECRET` from your `.env` file
+3. The signature must be sent in the `x-webhook-signature` header
+4. The server computes the same hash and compares it to verify the request
 
-## Improvements Backlog
-- Add security headers and CORS middleware tests
-- Add contract tests for API responses
-- Add performance tests for latency thresholds
+**Important:** JWT tokens from `/v1/auth/token` are for authenticated API endpoints, **not** for webhook verification. They are two separate authentication mechanisms:
+- **JWT tokens** → For user/API authentication (use `Authorization: Bearer <token>`)
+- **HMAC signatures** → For webhook payload integrity verification (use `x-webhook-signature: <hash>`)
+
+### Manual Signature Generation (if needed)
+
+If you need to generate the signature manually:
+
+```bash
+WEBHOOK_SECRET="your-webhook-secret-from-.env"
+PAYLOAD='{"message":"Hello, world!"}'
+SIGNATURE=$(echo -n "$PAYLOAD" | openssl dgst -sha256 -hmac "$WEBHOOK_SECRET" | cut -d' ' -f2)
+
+echo -n "$PAYLOAD" | http POST localhost:8787/v1/webhooks/receive \
+  x-webhook-signature:$SIGNATURE \
+  content-type:application/json
+```
